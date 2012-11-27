@@ -62,7 +62,7 @@ class Compiler(object):
                 return NameToken(t[2:-2])
             elif t.startswith('{%') and t.endswith('%}'):
                 return SyntaxToken(t[2:-2])
-            return t
+            return RawToken(t)
         return map(format_token, tokens)
 
     def compile(self):
@@ -73,14 +73,20 @@ class Compiler(object):
             if type(token) == RawToken:
                 self.LOAD_FAST(pos_ret_list)
                 self.LOAD_ATTR(self._make_name('append'))
-                self.LOAD_CONST(self._make_const('token'))
+                self.LOAD_CONST(self._make_const(token))
+                self.CALL_FUNCTION(1)
+                self.POP_TOP()
+            if type(token) == NameToken:
+                self.LOAD_FAST(pos_ret_list)
+                self.LOAD_ATTR(self._make_name('append'))
+                self.LOAD_GLOBAL(self._make_name(token))
                 self.CALL_FUNCTION(1)
                 self.POP_TOP()
 
-        #self.LOAD_CONST(self._make_const(''))
-        #self.LOAD_ATTR(self._make_const('join'))
-        #self.LOAD_FAST(pos_ret_list)
-        #self.CALL_FUNCTION(1)
+        self.LOAD_CONST(self._make_const(''))
+        self.LOAD_ATTR(self._make_name('join'))
+        self.LOAD_FAST(pos_ret_list)
+        self.CALL_FUNCTION(1)
         self.RETURN_VALUE()
         return self._dump()
 
@@ -93,7 +99,7 @@ class Compiler(object):
                 0,             # 'argcount' arguments count of the code object
                 1,             # 'nlocals' ??
                 200,           # 'stack_size' max size of the stack
-                64,            # 'flags' ??
+                75,            # 'flags' ??
                 code_string,   # 'codestring' the bytecode instructions
                 consts,        # 'constants' constants value for the code object
                 names,         # 'names' used names in this code object
@@ -106,8 +112,6 @@ class Compiler(object):
                 (),            # 'cellvars': ??
             )
         return code(*code_args)
-
-
 
 
 

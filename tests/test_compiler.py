@@ -13,4 +13,6 @@ class CompilerTestCase(unittest.TestCase):
         self.assertListEqual(self.c.tokenize(), wanted)
 
     def test_name_token(self):
-        print eval(self.c.compile())
+        wanted = 'Hello, Jim Green, how are you?'
+        ret = eval(self.c.compile(), {'name': 'Jim Green'})
+        self.assertEqual(wanted, ret)
