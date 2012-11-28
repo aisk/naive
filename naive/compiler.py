@@ -14,7 +14,9 @@ class RawToken(Token):
 
 class NameToken(Token):
     '''{{name}} '''
-    pass
+    @property
+    def names(self):
+        return self.split('.')
 
 class SyntaxToken(Token):
     '''{%syntax%} '''
@@ -56,10 +58,10 @@ class Compiler(object):
         return opfunc
 
     def tokenize(self):
-        tokens = re.split(r'({{\w+}})', self.text)
+        tokens = re.split(r'({{[\ ]?[\w|_|.]+[\ ]?}})', self.text)
         def format_token(t):
             if t.startswith('{{') and t.endswith('}}'):
-                return NameToken(t[2:-2])
+                return NameToken(t[2:-2].strip())
             elif t.startswith('{%') and t.endswith('%}'):
                 return SyntaxToken(t[2:-2])
             return RawToken(t)
@@ -79,9 +81,13 @@ class Compiler(object):
             if type(token) == NameToken:
                 self.LOAD_FAST(pos_ret_list)
                 self.LOAD_ATTR(self._make_name('append'))
-                self.LOAD_GLOBAL(self._make_name(token))
+                self.LOAD_GLOBAL(self._make_name(token.names[0]))
+                for name in token.names[1:]:
+                    self.LOAD_CONST(self._make_const(name))
+                    self.BINARY_SUBSCR()
                 self.CALL_FUNCTION(1)
                 self.POP_TOP()
+
 
         self.LOAD_CONST(self._make_const(''))
         self.LOAD_ATTR(self._make_name('join'))
