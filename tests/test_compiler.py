@@ -19,8 +19,8 @@ class CompilerTestCase(unittest.TestCase):
     def test_expr_token(self):
         c = compiler.Compiler('Hi!, {%if True%}True{%endif%}')
         tokens = c.tokenize()
-        self.assertEqual(tokens[1].type, 'if')
-        self.assertEqual(tokens[3].type, 'endif')
+        self.assertEqual(type(tokens[1]), compiler.IfToken)
+        self.assertEqual(type(tokens[3]), compiler.EndIfToken)
 
     def test_codes_length(self):
         c = compiler.Compiler('Hi!, {{name}}!')

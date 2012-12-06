@@ -23,14 +23,23 @@ class ExprToken(Token):
     @property
     def tokens(self):
         return self.split()
-    def __init__(self, s):
-        super(str, self).__init__(s)
-        if self.tokens[0] == 'if': self.type = 'if'
-        elif self.tokens[0] == 'else': self.type = 'else'
-        elif self.tokens[0] == 'endif': self.type = 'endif'
-        elif self.tokens[0] == 'for': self.type = 'for'
-        elif self.tokens[0] == 'endfor': self.type = 'endfor'
-        else: raise SyntaxError('Invalid expression')
+    #def __init__(self, s):
+    #    super(str, self).__init__(s)
+    #    if self.tokens[0] == 'if': self.type = 'if'
+    #    elif self.tokens[0] == 'else': self.type = 'else'
+    #    elif self.tokens[0] == 'endif': self.type = 'endif'
+    #    elif self.tokens[0] == 'for': self.type = 'for'
+    #    elif self.tokens[0] == 'endfor': self.type = 'endfor'
+    #    else: raise SyntaxError('Invalid expression')
+
+class IfToken(ExprToken):
+    next_jump_mark = None
+    end_jump_marks = []
+class ElifToken(ExprToken): pass
+class ElseToken(ExprToken): pass
+class EndIfToken(ExprToken): pass
+class ForToken(ExprToken): pass
+class EndForToken(ExprToken): pass
 
 class Compiler(object):
     def __init__(self, file_or_string):
@@ -39,6 +48,7 @@ class Compiler(object):
         self.varnames = []
         self.codes = []
         self.codes_length = 0
+        self.expr_stack = []
         if isinstance(file_or_string, file):
             self.text = file_or_string.read()
         else:
@@ -78,7 +88,18 @@ class Compiler(object):
             if t.startswith('{{') and t.endswith('}}'):
                 return NameToken(t[2:-2].strip())
             elif t.startswith('{%') and t.endswith('%}'):
-                return ExprToken(t[2:-2].strip())
+                token = ExprToken(t[2:-2].strip())
+                EXPR_TOKEN_MAP = {
+                        'if': IfToken,
+                        'elif': ElifToken,
+                        'else': ElseToken,
+                        'endif': EndIfToken,
+                        'for': ForToken,
+                        'endfor': EndForToken,
+                    }
+                TokenCls = EXPR_TOKEN_MAP.get(token.tokens[0])
+                if TokenCls: return TokenCls(token)
+                raise SyntaxError('Invalid expression')
             return RawToken(t)
         return map(format_token, tokens)
 
@@ -102,12 +123,31 @@ class Compiler(object):
                     self.BINARY_SUBSCR()
                 self.CALL_FUNCTION(1)
                 self.POP_TOP()
-            elif type(token) == ExprToken and token.type == 'if':
+            elif type(token) == IfToken:
+                self.expr_stack.append(token)
                 self.LOAD_GLOBAL(self._make_name(token.tokens[1]))
                 self.POP_JUMP_IF_FALSE(1)
-                self.mark = len(self.codes) - 1
-            elif type(token) == ExprToken and token.type == 'endif':
-                self.codes[self.mark] = struct.pack('H', self.codes_length)
+                token.next_jump_mark = len(self.codes) - 1
+                self.expr_stack.append(token)
+            elif type(token) == ElifToken:
+                pre_token = self.expr_stack.pop()
+                if type(pre_token) != IfToken: raise SyntaxError('elif do not match')
+                self.JUMP_ABSOLUTE(1)
+                pre_token.end_jump_marks.append(len(self.codes) - 1)
+                self.codes[pre_token.next_jump_mark] = struct.pack('H', self.codes_length)
+                self.LOAD_GLOBAL(self._make_name(token.tokens[1]))
+                self.POP_JUMP_IF_FALSE(1)
+                token.next_jump_mark = len(self.codes) - 1
+                self.expr_stack.append(pre_token)
+            elif type(token) == EndIfToken:
+                print self.expr_stack
+                pre_token = self.expr_stack.pop()
+                if type(pre_token) != IfToken: raise SyntaxError('endif do not match')
+                self.codes[pre_token.next_jump_mark] = struct.pack('H', self.codes_length)
+                for mark in pre_token.end_jump_marks:
+                    self.codes[mark] = struct.pack('H', self.codes_length)
+            elif type(token) == ElseToken:
+                pass
 
 
 
