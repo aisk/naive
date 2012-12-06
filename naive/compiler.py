@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import re
 import types
 import opcode
@@ -23,14 +24,6 @@ class ExprToken(Token):
     @property
     def tokens(self):
         return self.split()
-    #def __init__(self, s):
-    #    super(str, self).__init__(s)
-    #    if self.tokens[0] == 'if': self.type = 'if'
-    #    elif self.tokens[0] == 'else': self.type = 'else'
-    #    elif self.tokens[0] == 'endif': self.type = 'endif'
-    #    elif self.tokens[0] == 'for': self.type = 'for'
-    #    elif self.tokens[0] == 'endfor': self.type = 'endfor'
-    #    else: raise SyntaxError('Invalid expression')
 
 class IfToken(ExprToken):
     next_jump_mark = None
@@ -137,17 +130,23 @@ class Compiler(object):
                 self.codes[pre_token.next_jump_mark] = struct.pack('H', self.codes_length)
                 self.LOAD_GLOBAL(self._make_name(token.tokens[1]))
                 self.POP_JUMP_IF_FALSE(1)
-                token.next_jump_mark = len(self.codes) - 1
+                pre_token.next_jump_mark = len(self.codes) - 1
                 self.expr_stack.append(pre_token)
+            elif type(token) == ElseToken:
+                pre_token = self.expr_stack.pop()
+                if type(pre_token) != IfToken: raise SyntaxError('else do not match')
+                self.JUMP_ABSOLUTE(1)
+                pre_token.end_jump_marks.append(len(self.codes) - 1)
+                self.codes[pre_token.next_jump_mark] = struct.pack('H', self.codes_length)
+                pre_token.next_jump_mark = len(self.codes) - 1
+                self.expr_stack.append(pre_token)
+
             elif type(token) == EndIfToken:
-                print self.expr_stack
                 pre_token = self.expr_stack.pop()
                 if type(pre_token) != IfToken: raise SyntaxError('endif do not match')
                 self.codes[pre_token.next_jump_mark] = struct.pack('H', self.codes_length)
-                for mark in pre_token.end_jump_marks:
+                for mark in pre_token.end_jump_marks:   # 所有的if/elif代码分支结尾都跳到endif之后的代码
                     self.codes[mark] = struct.pack('H', self.codes_length)
-            elif type(token) == ElseToken:
-                pass
 
 
 
