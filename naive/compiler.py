@@ -6,12 +6,15 @@ import struct
 
 code = types.CodeType
 
+
 class Token(str):
     pass
+
 
 class RawToken(Token):
     '''The raw content in template'''
     pass
+
 
 class NameToken(Token):
     '''{{name}} '''
@@ -19,20 +22,38 @@ class NameToken(Token):
     def names(self):
         return self.split('.')
 
+
 class ExprToken(Token):
     '''{%syntax%} '''
     @property
     def tokens(self):
         return self.split()
 
+
 class IfToken(ExprToken):
     next_jump_mark = None
     end_jump_marks = []
-class ElifToken(ExprToken): pass
-class ElseToken(ExprToken): pass
-class EndIfToken(ExprToken): pass
-class ForToken(ExprToken): pass
-class EndForToken(ExprToken): pass
+
+
+class ElifToken(ExprToken):
+    pass
+
+
+class ElseToken(ExprToken):
+    pass
+
+
+class EndIfToken(ExprToken):
+    pass
+
+
+class ForToken(ExprToken):
+    pass
+
+
+class EndForToken(ExprToken):
+    pass
+
 
 class Compiler(object):
     def __init__(self, file_or_string):
@@ -62,36 +83,42 @@ class Compiler(object):
     def __getattr__(self, name):
         if name not in opcode.opmap:
             return self.__getattribute__(name)
+
         def opfunc(*args):
             if opcode.opname.index(name) > opcode.HAVE_ARGUMENT:
-                if len(args) < 1: raise ValueError('no enough argument')
-                self.codes.append(struct.pack('B' ,opcode.opmap[name]))
-                self.codes.append(struct.pack('H' ,args[0]))
+                if len(args) < 1:
+                    raise ValueError('no enough argument')
+                self.codes.append(struct.pack('B', opcode.opmap[name]))
+                self.codes.append(struct.pack('H', args[0]))
                 self.codes_length += 3
             else:
-                self.codes.append(struct.pack('B' ,opcode.opmap[name]))
+                self.codes.append(struct.pack('B', opcode.opmap[name]))
                 self.codes_length += 1
         return opfunc
 
     def tokenize(self):
         tokens = re.split(r'({[{%][\ ]?[\w_.\ ]+[\ ]?[}%]})', self.text)
-        if tokens[0] == '': tokens.pop(0)
-        if tokens[-1] == '': tokens.pop(-1)
+        if tokens[0] == '':
+            tokens.pop(0)
+        if tokens[-1] == '':
+            tokens.pop(-1)
+
         def format_token(t):
             if t.startswith('{{') and t.endswith('}}'):
                 return NameToken(t[2:-2].strip())
             elif t.startswith('{%') and t.endswith('%}'):
                 token = ExprToken(t[2:-2].strip())
                 EXPR_TOKEN_MAP = {
-                        'if': IfToken,
-                        'elif': ElifToken,
-                        'else': ElseToken,
-                        'endif': EndIfToken,
-                        'for': ForToken,
-                        'endfor': EndForToken,
-                    }
+                    'if': IfToken,
+                    'elif': ElifToken,
+                    'else': ElseToken,
+                    'endif': EndIfToken,
+                    'for': ForToken,
+                    'endfor': EndForToken,
+                }
                 TokenCls = EXPR_TOKEN_MAP.get(token.tokens[0])
-                if TokenCls: return TokenCls(token)
+                if TokenCls:
+                    return TokenCls(token)
                 raise SyntaxError('Invalid expression')
             return RawToken(t)
         return map(format_token, tokens)
@@ -124,7 +151,8 @@ class Compiler(object):
                 self.expr_stack.append(token)
             elif type(token) == ElifToken:
                 pre_token = self.expr_stack.pop()
-                if type(pre_token) != IfToken: raise SyntaxError('elif do not match')
+                if type(pre_token) != IfToken:
+                    raise SyntaxError('elif do not match')
                 self.JUMP_ABSOLUTE(1)
                 pre_token.end_jump_marks.append(len(self.codes) - 1)
                 self.codes[pre_token.next_jump_mark] = struct.pack('H', self.codes_length)
@@ -134,7 +162,8 @@ class Compiler(object):
                 self.expr_stack.append(pre_token)
             elif type(token) == ElseToken:
                 pre_token = self.expr_stack.pop()
-                if type(pre_token) != IfToken: raise SyntaxError('else do not match')
+                if type(pre_token) != IfToken:
+                    raise SyntaxError('else do not match')
                 self.JUMP_ABSOLUTE(1)
                 pre_token.end_jump_marks.append(len(self.codes) - 1)
                 self.codes[pre_token.next_jump_mark] = struct.pack('H', self.codes_length)
@@ -143,12 +172,11 @@ class Compiler(object):
 
             elif type(token) == EndIfToken:
                 pre_token = self.expr_stack.pop()
-                if type(pre_token) != IfToken: raise SyntaxError('endif do not match')
+                if type(pre_token) != IfToken:
+                    raise SyntaxError('endif do not match')
                 self.codes[pre_token.next_jump_mark] = struct.pack('H', self.codes_length)
                 for mark in pre_token.end_jump_marks:   # 所有的if/elif代码分支结尾都跳到endif之后的代码
                     self.codes[mark] = struct.pack('H', self.codes_length)
-
-
 
         self.LOAD_CONST(self._make_const(''))
         self.LOAD_ATTR(self._make_name('join'))
@@ -163,22 +191,19 @@ class Compiler(object):
         names = tuple(self.names)
         varnames = tuple(self.varnames)
         code_args = (
-                0,             # 'argcount' arguments count of the code object
-                1,             # 'nlocals' ??
-                200,           # 'stack_size' max size of the stack
-                75,            # 'flags' ??
-                code_string,   # 'codestring' the bytecode instructions
-                consts,        # 'constants' constants value for the code object
-                names,         # 'names' used names in this code object
-                varnames,      # 'varnames' variable names
-                'test.py',     # 'filename' filename
-                '<module>',    # 'name' name of the function/class/module
-                1,             # 'firstlineno' the first line number of this code object
-                '',            # 'lnotab' ??
-                (),            # 'freevars' for closure
-                (),            # 'cellvars': ??
-            )
+            0,             # 'argcount' arguments count of the code object
+            1,             # 'nlocals' ??
+            200,           # 'stack_size' max size of the stack
+            75,            # 'flags' ??
+            code_string,   # 'codestring' the bytecode instructions
+            consts,        # 'constants' constants value for the code object
+            names,         # 'names' used names in this code object
+            varnames,      # 'varnames' variable names
+            'test.py',     # 'filename' filename
+            '<module>',    # 'name' name of the function/class/module
+            1,             # 'firstlineno' the first line number of this code object
+            '',            # 'lnotab' ??
+            (),            # 'freevars' for closure
+            (),            # 'cellvars': ??
+        )
         return code(*code_args)
-
-
-
